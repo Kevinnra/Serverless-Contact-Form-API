@@ -29,4 +29,4 @@ A production-ready serverless contact form backend that receives and manages for
 
 ---
 
-*Built with ❤️ by [Kevin Ramirez](https://kevinnramirez.com)*
+*Built with ☁️ by [Kevinn Ramirez](https://kevinnramirez.com)*
