@@ -14,7 +14,7 @@ logger.setLevel(logging.INFO)
 dynamodb = boto3.resource('dynamodb')
 ses_client = boto3.client('ses', region_name=os.environ.get('AWS_REGION', 'ap-northeast-1'))
 
-# Environment variables - REQUIRED, will fail if not set
+# Environment variables
 try:
     TABLE_NAME = os.environ['TABLE_NAME']
     SENDER_EMAIL = os.environ['SENDER_EMAIL']
@@ -45,7 +45,7 @@ def lambda_handler(event, context):
     
     logger.info({
         'event': 'request_received',
-        'request_id': context.request_id
+        'request_id': context.aws_request_id
     })
     
     try:
