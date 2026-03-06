@@ -1,0 +1,9 @@
+{
+  "body": "{\"name\": \"Test User\", \"email\": \"test@example.com\", \"message\": \"Testing SAM deployment!\"}",
+  "requestContext": {
+    "identity": {
+      "sourceIp": "127.0.0.1"
+    },
+    "requestId": "test-request-id"
+  }
+}

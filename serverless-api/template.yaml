@@ -1,0 +1,226 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Contact Form API - Serverless infrastructure
+
+# Global settings for all functions
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 128
+    Runtime: python3.13
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref ContactFormTable
+        SENDER_EMAIL: !Ref SenderEmail
+        RECIPIENT_EMAIL: !Ref RecipientEmail
+
+# Parameters 
+Parameters:
+  SenderEmail:
+    Type: String
+    Description: Verified SES sender email address
+    Default: verified-email@example.com
+
+  RecipientEmail:
+    Type: String
+    Description: Email address to receive notifications
+    Default: email@example.com
+
+  Environment:
+    Type: String
+    Description: Environment name (dev, staging, prod)
+    Default: prod
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+
+Resources:
+  # Lambda Function
+  ContactFormFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ContactFormHandler-${Environment}
+      Description: Processes contact form submissions
+      CodeUri: src/
+      Handler: lambda_function.lambda_handler
+
+      # Permissions
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContactFormTable
+        - SESCrudPolicy:
+            IdentityName: !Ref SenderEmail
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+
+      # API Gateway Event
+      Events:
+        ContactAPI:
+          Type: Api
+          Properties:
+            Path: /contact
+            Method: post
+            RestApiId: !Ref ContactFormAPI
+
+  # API Gateway
+  ContactFormAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub ContactFormAPI-${Environment}
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: '''POST, OPTIONS'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key'''
+        AllowOrigin: '''*''' # Restrict to your domain in production
+
+      # API Gateway CloudWatch Logs
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiGatewayLogGroup.Arn
+        Format: $context.requestId $context.error.message $context.error.messageString
+
+  # DynamoDB Table
+  ContactFormTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ContactFormSubmissions-${Environment}
+      BillingMode: PAY_PER_REQUEST # On-demand pricing
+
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: 'N'
+
+      KeySchema:
+        - AttributeName: email
+          KeyType: HASH # Partition key
+        - AttributeName: timestamp
+          KeyType: RANGE # Sort key
+
+      # Enable point-in-time recovery
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+      # Server-side encryption
+      SSESpecification:
+        SSEEnabled: true
+
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: ContactFormAPI
+
+  # CloudWatch Log Groups
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/ContactFormHandler-${Environment}
+      RetentionInDays: 14
+
+  ApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/apigateway/ContactFormAPI-${Environment}
+      RetentionInDays: 14
+
+  # SNS Topic for Alarms
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ContactFormAlerts-${Environment}
+      DisplayName: Contact Form Alerts
+      Subscription:
+        - Endpoint: !Ref RecipientEmail
+          Protocol: email
+
+  # CloudWatch Alarms
+  LambdaErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ContactForm-Lambda-Errors-${Environment}
+      AlarmDescription: Alert when Lambda function has errors
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ContactFormFunction
+      AlarmActions:
+        - !Ref AlertTopic
+      TreatMissingData: notBreaching
+
+  API5XXErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ContactForm-API-5XX-Errors-${Environment}
+      AlarmDescription: Alert when API returns 5XX errors
+      MetricName: 5XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub ContactFormAPI-${Environment}
+      AlarmActions:
+        - !Ref AlertTopic
+      TreatMissingData: notBreaching
+
+  HighLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ContactForm-High-Latency-${Environment}
+      AlarmDescription: Alert when API response time is too high
+      MetricName: Latency
+      Namespace: AWS/ApiGateway
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub ContactFormAPI-${Environment}
+      AlarmActions:
+        - !Ref AlertTopic
+      TreatMissingData: notBreaching
+
+# Outputs
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${ContactFormAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/contact
+    Export:
+      Name: !Sub ContactFormAPI-Endpoint-${Environment}
+
+  LambdaFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt ContactFormFunction.Arn
+    Export:
+      Name: !Sub ContactFormFunction-Arn-${Environment}
+
+  DynamoDBTableName:
+    Description: DynamoDB table name
+    Value: !Ref ContactFormTable
+    Export:
+      Name: !Sub ContactFormTable-Name-${Environment}
+
+  SNSTopicArn:
+    Description: SNS topic ARN for alerts
+    Value: !Ref AlertTopic
+    Export:
+      Name: !Sub ContactFormAlerts-Arn-${Environment}
