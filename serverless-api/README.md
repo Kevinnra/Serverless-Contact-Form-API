@@ -54,8 +54,9 @@ sam deploy --guided
 ### Test with Python Script 
 
 ```bash
-python3 [test_contact_form.py](events/test_contact_form.py)
+python3 test_contact_form.py
 ```
+[test_contact_form.py](events/test_contact_form.py)
 
 Expected output:
 ```
