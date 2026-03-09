@@ -49,18 +49,57 @@ sam deploy --guided
 # Save arguments to config: Y
 ```
 
-### Local Testing
-```bash
-# Test Lambda function locally
-sam local invoke ContactFormFunction -e events/test-event.json
+## Testing
 
-# Start API Gateway locally
-sam local start-api
+### Test with Python Script 
+
+```bash
+python3 [test_contact_form.py](events/test_contact_form.py)
+```
+
+Expected output:
+```
+Testing Contact Form API
+
+✓ Valid submission: 200
+  Response: {'message': 'Thank you for your message! I will get back to you soon.', 'success': True}
+
+✓ Invalid email: 400
+  Response: {'error': 'Invalid email format', 'success': False}
+
+✓ Empty fields: 400
+  Response: {'error': 'All fields are required', 'success': False}
+
+All tests completed!
+```
+
+### Test with curl
+```bash
+# Get your API endpoint from stack outputs
+aws cloudformation describe-stacks \
+  --stack-name contact-form-api-prod \
+  --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+  --output text
 
 # Test with curl
-curl -X POST http://localhost:3000/contact \
+curl -X POST https://YOUR-API-ID.execute-api.REGION.amazonaws.com/prod/contact \
   -H "Content-Type: application/json" \
-  -d '{"name":"Test","email":"test@example.com","message":"Local test"}'
+  -d '{"name":"Test User","email":"test@example.com","message":"Testing contact form"}'
+
+# Expected response:
+# {"message": "Thank you for your message! I will get back to you soon.", "success": true}
+```
+
+### View Logs
+```bash
+# Tail logs in real-time
+sam logs -n ContactFormFunction --stack-name contact-form-api-prod --tail
+
+# View recent logs
+sam logs -n ContactFormFunction --stack-name contact-form-api-prod --start-time '10min ago'
+
+# Filter for errors
+sam logs -n ContactFormFunction --stack-name contact-form-api-prod --filter 'ERROR'
 ```
 
 ## Commands
@@ -71,8 +110,13 @@ sam build
 # Deploy
 sam deploy
 
-# View logs
-sam logs -n ContactFormFunction --tail
+# Test deployed API
+curl -X POST $(aws cloudformation describe-stacks --stack-name contact-form-api-prod --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' --output text) \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test","email":"test@example.com","message":"Test message"}'
+
+# View logs (real-time)
+sam logs -n ContactFormFunction --stack-name contact-form-api-prod --tail
 
 # Delete stack
 sam delete
