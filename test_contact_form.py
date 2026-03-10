@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
+# Setup: cp config.json.example config.json (then add your API URL)
 import requests
 import json
 
-API_URL = "https://x51urh1uwd.execute-api.ap-northeast-1.amazonaws.com/prod/contact" # Replace with your actual API Gateway URL
+# Load API URL from config file
+try:
+    with open('config.json', 'r') as f:
+        config = json.load(f)
+        API_URL = config['api_url']
+except FileNotFoundError:
+    print("Error: config.json not found.")
+    print("Run: cp config.json.example config.json")
+    exit(1)
 
 # Test normal submission
 def test_valid_submission():

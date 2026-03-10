@@ -51,12 +51,16 @@ sam deploy --guided
 
 ## Testing
 
-### Test with Python Script 
+### Test with Python Script
 
 ```bash
+# Setup config file with your API URL
+cp config.json.example config.json
+# Edit config.json and add your API Gateway URL
+
+# Run tests
 python3 test_contact_form.py
 ```
-[test_contact_form.py](events/test_contact_form.py)
 
 Expected output:
 ```
