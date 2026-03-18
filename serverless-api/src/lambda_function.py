@@ -1,3 +1,4 @@
+# lambda_function.py - AWS Lambda handler for contact form API
 import json
 import boto3
 import os
