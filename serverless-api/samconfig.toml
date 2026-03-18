@@ -1,0 +1,11 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "contact-form-api-prod"
+resolve_s3 = true
+s3_prefix = "contact-form-api-prod"
+region = "ap-northeast-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "SenderEmail=\"admin@kevinnramirez.com\" RecipientEmail=\"admin@kevinnramirez.com\" Environment=\"prod\""
+image_repositories = []

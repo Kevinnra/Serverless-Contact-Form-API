@@ -1,6 +1,5 @@
 # AWS SAM
 .aws-sam/
-samconfig.toml
 
 # Configuration
 config.json
@@ -37,3 +36,4 @@ Thumbs.db
 
 # Logs
 *.log
+project2-week2-explained.md
