@@ -78,7 +78,7 @@ Testing Contact Form API
 All tests completed!
 ```
 
-### Test with curl
+### Test with curl-n 
 ```bash
 # Get your API endpoint from stack outputs
 aws cloudformation describe-stacks \

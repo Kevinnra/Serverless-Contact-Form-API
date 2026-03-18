@@ -1,0 +1,88 @@
+# This workflow automatically builds and deploys the serverless API to AWS when changes are detected
+name: Deploy Serverless API
+
+on:
+  # Automatic trigger on push to main branch (only if serverless-api files or this workflow changes)
+  push:
+    branches: [ main ]
+    paths:
+      - 'serverless-api/**'
+      - '.github/workflows/deploy-serverless-api.yaml'
+  # Manual trigger: allows running the workflow from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout the repository code to the runner environment
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      # Step 2: Install Python 3.12 runtime (required for Lambda functions and SAM CLI)
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      # Step 3: Install AWS SAM CLI
+      - name: Setup AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+      
+      # Step 4: Configure AWS credentials using GitHub secrets for authentication
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+      
+      # Step 5: Build the serverless application
+      - name: SAM Build
+        working-directory: ./serverless-api
+        run: sam build
+      
+      # Step 6: Deploy the built application to AWS CloudFormation
+      - name: SAM Deploy
+        working-directory: ./serverless-api
+        run: |
+          sam deploy \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              SenderEmail=${{ secrets.SES_SENDER_EMAIL }} \
+              RecipientEmail=${{ secrets.SES_RECIPIENT_EMAIL }} \
+              Environment=prod
+      
+      # Step 7: Retrieve and display the API endpoint URL
+      - name: Get API Endpoint
+        working-directory: ./serverless-api
+        run: |
+          ENDPOINT=$(aws cloudformation describe-stacks \
+            --stack-name contact-form-api-prod \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+            --output text)
+          echo "API Endpoint: $ENDPOINT"
+          echo "::notice::API Endpoint: $ENDPOINT"
+      
+      # Step 8: Run smoke tests to verify the deployment was successful
+      - name: Run smoke tests
+        working-directory: ./serverless-api
+        run: |
+          ENDPOINT=$(aws cloudformation describe-stacks \
+            --stack-name contact-form-api-prod \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+            --output text)
+          
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST $ENDPOINT \
+            -H "Content-Type: application/json" \
+            -d '{"name":"CI Test","email":"test@example.com","message":"Automated test"}')
+          
+          if [ $STATUS -eq 200 ] || [ $STATUS -eq 400 ]; then
+            echo "✅ API is responding (Status: $STATUS)"
+          else
+            echo "❌ API returned unexpected status: $STATUS"
+            exit 1
+          fi
