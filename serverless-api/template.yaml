@@ -75,10 +75,46 @@ Resources:
     Properties:
       Name: !Sub ContactFormAPI-${Environment}
       StageName: !Ref Environment
+
+      MethodSettings:
+        - HttpMethod: POST
+          ResourcePath: /contact
+          ThrottlingBurstLimit: 10 # max 10 requests in a short burst
+          ThrottlingRateLimit: 5   # max 5 requests per second
       Cors:
         AllowMethods: '''POST, OPTIONS'''
         AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key'''
-        AllowOrigin: '''*''' # Restrict to your domain in production
+        AllowOrigin: '''https://www.kevinnramirez.com''' # Restrict to your domain in production
+      
+      # Enable request validation for POST /contact
+      RequestValidators: 
+       BodyValidator:
+         ValidateRequestBody: true
+         ValidateRequestParameters: false
+
+      Models:
+        ContactFormModel:
+         type: object
+         required:
+           - name
+           - email
+           - message
+         properties:
+           name:
+             type: string
+             minLength: 2
+             maxLength: 100
+           email:
+             type: string
+             format: email
+             maxLength: 100
+           message:
+             type: string
+             minLength: 10
+             maxLength: 1000
+           honeypot:
+             type: string
+             maxLength: 0  # Should always be empty, used for spam detection
 
       # API Gateway CloudWatch Logs
       AccessLogSetting:

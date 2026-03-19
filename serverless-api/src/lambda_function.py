@@ -25,19 +25,20 @@ except KeyError as e:
     raise
 
 def sanitize_input(text, max_length=1000):
-    """Sanitize user input to prevent XSS"""
+    """Sanitize user input to prevent cross-site scripting (XSS) and injection attacks"""
     if not text:
         return ""
-    
+    # Remove HTML tags and escape special characters
     text = re.sub(r'<[^>]*>', '', text)
     text = html.escape(text)
+    # Trim whitespace and limit length
     text = text.strip()
     text = text[:max_length]
     
     return text
 
 def validate_email(email):
-    """Validate email format"""
+    """Validate email format using regex"""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
@@ -61,8 +62,10 @@ def lambda_handler(event, context):
         if honeypot:
             logger.warning({
                 'event': 'spam_detected',
-                'reason': 'honeypot_filled'
+                'reason': 'honeypot_filled',
+                'ip': event.get('requestContext', {}).get('identity', {}).get('sourceIp')
             })
+            # Respond with success to avoid tipping off bots, but do not process the submission
             return create_response(200, {
                 'message': 'Thank you for your message!',
                 'success': True
@@ -75,15 +78,31 @@ def lambda_handler(event, context):
         
         # Validate
         if not name or not email or not message:
+            logger.warning({
+                'event': 'validation_failed',
+                'reason': 'missing_fields',
+                'fields': {
+                    'name': bool(name),
+                    'email': bool(email),
+                    'message': bool(message)
+                }
+            })
             return create_response(400, {
-                'error': 'All fields are required'
+                'error': 'Name, email, and message are required'
             })
         
+        # Validate email format
         if not validate_email(email):
+            logger.warning({
+                'event': 'validation_failed',
+                'reason': 'invalid_email',
+                'email': email
+            })
             return create_response(400, {
                 'error': 'Invalid email address'
             })
         
+        # Check message length
         if len(message) < 10:
             return create_response(400, {
                 'error': 'Message must be at least 10 characters'
