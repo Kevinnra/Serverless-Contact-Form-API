@@ -12,14 +12,35 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Run unit tests before deploying - deploy only happens if all tests pass
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install test dependencies
+        working-directory: ./serverless-api
+        run: pip install pytest boto3 moto
+
+      - name: Run unit tests
+        working-directory: ./serverless-api
+        run: pytest tests/test_lambda.py -v
+
   deploy:
+    needs: test  # Only runs if test job passes
     runs-on: ubuntu-latest
     steps:
       # Step 1: Checkout the repository code to the runner environment
       - name: Checkout code
         uses: actions/checkout@v3
       
-      # Step 2: Install Python 3.12 runtime (required for Lambda functions and SAM CLI)
+      # Step 2: Install Python 3.13 runtime (required for Lambda functions and SAM CLI)
       - name: Setup Python
         uses: actions/setup-python@v4
         with:

@@ -2,18 +2,20 @@
 
 ![Status: Under Development](https://img.shields.io/badge/Status-Under%20Development-yellow?style=flat-square)
 ![AWS](https://img.shields.io/badge/AWS-Lambda%20%7C%20DynamoDB%20%7C%20SES-FF9900?style=flat-square&logo=amazon-aws)
+![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat-square&logo=github-actions)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 Production-ready serverless API built with AWS SAM.
 
 ## Architecture
 
-- **AWS Lambda**: Contact form handler (Python 3.12)
-- **API Gateway**: REST API endpoint
+- **AWS Lambda**: Contact form handler (Python 3.13)
+- **API Gateway**: REST API endpoint 
 - **DynamoDB**: Submission storage
 - **SES**: Email notifications
 - **CloudWatch**: Monitoring and alarms
 - **SNS**: Alert notifications
+- **GitHub Actions**: CI/CD auto-deploy on push to main
 
 ## 🚀 Features
 
@@ -24,6 +26,9 @@ Production-ready serverless API built with AWS SAM.
 - ⚡ Returns proper success/error responses
 - 🌐 Handles CORS for your domain
 - 📊 Includes monitoring and alerts
+- 🚦 Rate limiting to prevent abuse (5 req/s, burst 10)
+- 🤖 Honeypot spam detection
+- 🔄 Automated deployments via GitHub Actions
 
 ## Prerequisites
 
@@ -58,24 +63,16 @@ sam deploy --guided
 cp config.json.example config.json
 # Edit config.json and add your API Gateway URL
 
-# Run tests
-python3 test_contact_form.py
+# Run integration tests against deployed API
+python3 serverless-api/tests/test_contact_form.py
 ```
 
-Expected output:
-```
-Testing Contact Form API
-
-✓ Valid submission: 200
-  Response: {'message': 'Thank you for your message! I will get back to you soon.', 'success': True}
-
-✓ Invalid email: 400
-  Response: {'error': 'Invalid email format', 'success': False}
-
-✓ Empty fields: 400
-  Response: {'error': 'All fields are required', 'success': False}
-
-All tests completed!
+### Run Unit Tests
+```bash
+# Tests Lambda function logic directly (no AWS needed)
+cd serverless-api
+pip install pytest
+pytest tests/test_lambda.py -v
 ```
 
 ### Test with curl-n 
@@ -93,6 +90,36 @@ curl -X POST https://YOUR-API-ID.execute-api.REGION.amazonaws.com/prod/contact \
 
 # Expected response:
 # {"message": "Thank you for your message! I will get back to you soon.", "success": true}
+```
+
+### Test Rate Limiting
+```bash
+# Send 20 parallel requests - expect ~10 to be throttled
+for i in {1..20}; do
+  curl -s -o /dev/null -w "Request $i: %{http_code}\n" -X POST YOUR-API-ENDPOINT \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Test","email":"test@example.com","message":"Rate limit test"}' &
+done
+wait
+```
+
+### Test Honeypot (Bot Detection)
+```bash
+# Honeypot field filled = bot detected, silently discarded
+curl -X POST YOUR-API-ENDPOINT \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Bot","email":"bot@spam.com","message":"spam","honeypot":"im a bot"}'
+
+# Returns 200 to fool the bot, but nothing is stored or emailed
+```
+
+### Test XSS / HTML Injection
+```bash
+curl -X POST YOUR-API-ENDPOINT \
+  -H "Content-Type: application/json" \
+  -d '{"name":"<script>alert(\"xss\")</script>","email":"xss@test.com","message":"<img src=x onerror=alert(1)> Hello"}'
+
+# HTML tags are stripped, special characters escaped before storing
 ```
 
 ### View Logs
