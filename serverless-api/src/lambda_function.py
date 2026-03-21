@@ -1,4 +1,4 @@
-# lambda_function.py - AWS Lambda handler for contact form API
+# Lambda function for handling contact form submissions, storing in DynamoDB, and sending email notifications via SES. (test comment to trigger redeploy)
 import json
 import boto3
 import os
