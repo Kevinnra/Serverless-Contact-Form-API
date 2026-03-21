@@ -1,4 +1,4 @@
-# This is a sample event for testing the Lambda function locally. You can modify this event to match the structure of the events your function will receive in production.
+# this file is for sam local invoke testing. It simulates the event object that API Gateway would send to the Lambda function when a request is made to the API endpoint. You can modify this file to test different input scenarios for your Lambda function.
 {
   "body": "{\"name\": \"Test User\", \"email\": \"test@example.com\", \"message\": \"Testing SAM deployment!\"}",
   "requestContext": {
