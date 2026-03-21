@@ -65,3 +65,52 @@ sam logs -n ContactFormFunction --stack-name contact-form-api-prod --start-time 
 # Filter errors only
 sam logs -n ContactFormFunction --stack-name contact-form-api-prod --filter 'ERROR'
 ```
+
+---
+
+## Testing
+
+### Unit Tests (No AWS Required)
+```bash
+cd serverless-api
+pip install pytest
+PYTHONPATH=. pytest tests/test_lambda.py -v
+```
+
+### Manual curl Tests
+
+**Happy path:**
+```bash
+curl -X POST https://YOUR-API-ID.execute-api.ap-northeast-1.amazonaws.com/prod/contact \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test User","email":"test@example.com","message":"Hello!"}'
+
+# Expected: {"message": "Thank you for your message! I will get back to you soon.", "success": true}
+```
+
+**Test honeypot (bot detection):**
+```bash
+curl -X POST YOUR-API-ENDPOINT \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Bot","email":"bot@spam.com","message":"spam","honeypot":"im a bot"}'
+# Returns 200 silently — nothing stored or emailed
+```
+
+**Test XSS sanitization:**
+```bash
+curl -X POST YOUR-API-ENDPOINT \
+  -H "Content-Type: application/json" \
+  -d '{"name":"<script>alert(\"xss\")</script>","email":"xss@test.com","message":"<img src=x>"}'
+# HTML stripped before storage
+```
+
+**Test rate limiting:**
+```bash
+for i in {1..20}; do
+  curl -s -o /dev/null -w "Request $i: %{http_code}\n" -X POST YOUR-API-ENDPOINT \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Test","email":"test@example.com","message":"Rate limit test"}' &
+done
+wait
+# ~10 requests will be throttled (429)
+```
