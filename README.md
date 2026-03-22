@@ -15,15 +15,14 @@
 
 ---
 
-## Project Overview
 
-### Problem Statement
+#### Problem Statement
 Static portfolio websites need a way to receive visitor messages without a traditional backend server. Running a dedicated server 24/7 for a contact form is wasteful, expensive, and over-engineered for the use case.
 
-### Solution
+#### Solution
 A fully serverless API built on AWS that costs effectively **$0/month** (within free tier), scales automatically to any traffic level, and deploys itself on every Git push — no servers to manage, no runtime to maintain.
 
-### Key Results
+#### Key Results
 - **$0.00/month** operational cost within AWS Free Tier
 - **< 300ms** average API response time
 - **100% automated** deployments via GitHub Actions + AWS SAM
@@ -32,45 +31,12 @@ A fully serverless API built on AWS that costs effectively **$0/month** (within 
 
 ---
 
-## 🏗️ Architecture
+### 🏗️ Architecture
 
-```
-                          ┌──────────────────────────────────────────┐
-                          │           GitHub Actions (CI/CD)         │
-                          │  1. sam build                            │
-                          │  2. sam deploy → CloudFormation Stack    │
-                          └──────────────────┬───────────────────────┘
-                                             │ deploys
-                                             ▼
-┌──────────────┐    POST /contact   ┌─────────────────┐
-│  Portfolio   │ ─────────────────► │   API Gateway   │ ── Rate Limiting (5 req/s)
-│  Website     │                    │   (REST API)    │ ── CORS Headers
-└──────────────┘                    └────────┬────────┘
-                                             │ triggers
-                                             ▼
-                                    ┌─────────────────┐
-                                    │  AWS Lambda     │ ── Input Validation
-                                    │  (Python 3.13)  │ ── HTML Sanitization
-                                    │                 │ ── Honeypot Detection
-                                    └────────┬────────┘
-                                             │
-                          ┌──────────────────┼──────────────────┐
-                          ▼                  ▼                  ▼
-                  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐
-                  │   DynamoDB   │  │  Amazon SES  │  │   CloudWatch     │
-                  │  (Storage)   │  │  (Email)     │  │  (Logs/Alarms)   │
-                  └──────────────┘  └──────────────┘  └──────────────────┘
-                                             │
-                                             ▼
-                                    ┌──────────────────┐
-                                    │   Amazon SNS     │
-                                    │  (Alert Emails)  │
-                                    └──────────────────┘
-```
+![Architecture Diagram](docs/images/contact-form-v2.jpg)
 
 ---
 
-##  Technologies & Services
 
 ### AWS Infrastructure
 | Service | Role |
@@ -100,13 +66,13 @@ A fully serverless API built on AWS that costs effectively **$0/month** (within 
 ### 1. Automated CI/CD with AWS SAM
 Every push to `main` triggers GitHub Actions, which runs `sam build` and `sam deploy`, automatically updating the Lambda function and all infrastructure through CloudFormation. Zero manual steps after initial setup.
 
-### 2. Security Hardening
+### 2. Data Validation & Security
 - **Input validation** — required fields, length limits, email format checks
 - **HTML sanitization** — strips `<script>` tags and escapes special characters before storage
 - **Honeypot field** — silent bot detection; bots that fill the hidden field get a fake 200 response while nothing is stored or emailed
 - **Rate limiting** — API Gateway throttles to 5 requests/second (burst of 10) to prevent abuse
 
-### 3. Observability
+### 3. Monitoring & Observability
 - CloudWatch collects all Lambda logs automatically
 - Custom CloudWatch alarms trigger SNS alerts on error spikes
 - Real-time log tailing via `sam logs`
@@ -119,7 +85,7 @@ Every push to `main` triggers GitHub Actions, which runs `sam build` and `sam de
 
 ---
 
-## 🪂 Deployment
+### 🪂 Deployment
 
 ```bash
 git clone https://github.com/Kevinnra/Serverless-Contact-Form-API.git
@@ -134,16 +100,16 @@ See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full step-by-step guide
 
 ---
 
-## 🧪 Testing
+### 🧪 Testing
 
-### Unit Tests
+#### Unit Tests
 ```bash
 cd serverless-api
 pip install pytest
 PYTHONPATH=. pytest tests/test_lambda.py -v
 ```
 
-### Live API Tests
+#### Live API Tests
 ```bash
 curl -X POST YOUR-API-ENDPOINT \
   -H "Content-Type: application/json" \
@@ -154,7 +120,7 @@ See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#testing)** for honeypot, XSS, rate
 
 ---
 
-## 📁 Project Structure
+### 📁 Project Structure
 
 ```
 .
@@ -197,26 +163,26 @@ See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#testing)** for honeypot, XSS, rate
 
 ---
 
-## Challenges & Solutions
+### Challenges & Solutions
 
-### Challenge 1: Understanding the Infrastructure Before Automating It
+#### Challenge 1: Understanding the Infrastructure Before Automating It
 **Problem:** Jumping straight into SAM without understanding how the individual AWS services actually connect — what triggers what, how IAM roles are scoped, how API Gateway routes map to Lambda functions.
 
 **Solution:** Built the entire stack manually through the AWS Console first — creating the Lambda function, API Gateway, DynamoDB table, SES configuration, and IAM role step by step. Once everything was wired together and working, the insight became clear: every click in the console is just a configuration value. SAM's `template.yaml` is those same decisions written as code — `AWS::Serverless::Function` replaces the Lambda console form, `Events: Api:` replaces the API Gateway trigger wizard, `Policies:` replaces the IAM role builder. Understanding the manual process made the IaC layer intuitive rather than abstract.
 
-### Challenge 2: SES Sandbox Restrictions
+#### Challenge 2: SES Sandbox Restrictions
 **Problem:** By default, AWS SES operates in sandbox mode where you can only send to verified email addresses, making real-world testing difficult.
 
 **Solution:** Verified both sender and recipient email addresses in SES, and documented the production SES request process in setup docs. The architecture supports moving to production SES with a simple configuration change.
 
-### Challenge 3: Debugging CloudFormation Stack Failures
+#### Challenge 3: Debugging CloudFormation Stack Failures
 **Problem:** When a `sam deploy` fails mid-way, CloudFormation rolls back the entire stack — but the error message in the CLI is often vague, making it hard to pinpoint the root cause.
 
 **Solution:** Learned to go directly to the AWS Console → CloudFormation → Stack events tab, which shows the exact resource that failed and the detailed error reason. Combined with `sam logs` for Lambda-level errors and CloudWatch for runtime issues, this three-layer debugging approach (CloudFormation events → SAM logs → CloudWatch) resolved every deployment failure encountered during the project.
 
 ---
 
-## 💰 Cost Analysis
+### 💰 Cost Analysis
 
 | Service | Configuration | Monthly Cost |
 |---|---|---|
@@ -229,7 +195,7 @@ See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#testing)** for honeypot, XSS, rate
 
 ---
 
-##  Future Enhancements
+### Future Improvements
 
 - [ ] Add WAF rules to API Gateway for advanced threat protection
 - [ ] Migrate infrastructure to Terraform for multi-environment support
@@ -237,7 +203,7 @@ See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#testing)** for honeypot, XSS, rate
 
 ---
 
-## 📚 What I Learned
+### 📚 What I Learned
 
 - **Serverless architecture patterns** — event-driven design, stateless functions, managed services
 - **AWS SAM & CloudFormation** — Infrastructure as Code for serverless resources
@@ -249,7 +215,7 @@ See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#testing)** for honeypot, XSS, rate
 
 ---
 
-## 📞 Contact
+### 📞 Contact
 
 **Kevin Ramirez**
 - Portfolio: [www.kevinnramirez.com](https://www.kevinnramirez.com)
