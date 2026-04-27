@@ -1,17 +1,18 @@
 # Serverless Contact Form API
 
-> A production-ready REST API that processes contact form submissions from [kevinnramirez.com](https://kevinnramirez.com). Built entirely on AWS serverless services — no server to manage, no idle cost, auto-deploys on every push to main.
+> REST API that processes contact form submissions from [kevinnramirez.com](https://kevinnramirez.com) — built entirely on AWS serverless services, defined as Infrastructure as Code, and deployed automatically on every push to main.
 
-[![AWS Lambda](https://img.shields.io/badge/AWS-Lambda-FF9900?style=flat-square&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/lambda/)
-[![API Gateway](https://img.shields.io/badge/AWS-API%20Gateway-FF9900?style=flat-square&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/api-gateway/)
-[![DynamoDB](https://img.shields.io/badge/AWS-DynamoDB-FF9900?style=flat-square&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/dynamodb/)
-[![SES](https://img.shields.io/badge/AWS-SES-FF9900?style=flat-square&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/ses/)
-[![CloudWatch](https://img.shields.io/badge/AWS-CloudWatch-FF9900?style=flat-square&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/cloudwatch/)
+[![AWS Lambda](https://img.shields.io/badge/AWS-Lambda-FF9900?style=flat-square&logo=amazonaws&logoColor=white)](https://aws.amazon.com/lambda/)
+[![API Gateway](https://img.shields.io/badge/AWS-API%20Gateway-FF9900?style=flat-square&logo=amazonaws&logoColor=white)](https://aws.amazon.com/api-gateway/)
+[![DynamoDB](https://img.shields.io/badge/AWS-DynamoDB-FF9900?style=flat-square&logo=amazondynamodb&logoColor=white)](https://aws.amazon.com/dynamodb/)
+[![SES](https://img.shields.io/badge/AWS-SES-FF9900?style=flat-square&logo=amazonaws&logoColor=white)](https://aws.amazon.com/ses/)
+[![CloudWatch](https://img.shields.io/badge/AWS-CloudWatch-FF9900?style=flat-square&logo=amazonaws&logoColor=white)](https://aws.amazon.com/cloudwatch/)
+[![SNS](https://img.shields.io/badge/AWS-SNS-FF9900?style=flat-square&logo=amazonaws&logoColor=white)](https://aws.amazon.com/sns/)
+[![SAM](https://img.shields.io/badge/AWS-SAM-232F3E?style=flat-square&logo=amazonaws&logoColor=white)](https://aws.amazon.com/serverless/sam/)
 [![Python](https://img.shields.io/badge/Python-3.13-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![SAM](https://img.shields.io/badge/AWS-SAM-232F3E?style=flat-square&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/serverless/sam/)
-[![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white)](https://github.com/features/actions)
+[![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)](https://github.com/features/actions)
 
-**[Live Demo](https://kevinnramirez.com/#contact)** · **[Portfolio Page](https://kevinnramirez.com)** · **[LinkedIn](https://www.linkedin.com/in/kevinnramirez/)**
+**[Live Demo](https://kevinnramirez.com/#contact)** · **[Portfolio Page](https://kevinnramirez.com/projects/project.html?id=serverless-api)** · **[LinkedIn](https://www.linkedin.com/in/kevinnramirez/)**
 
 ---
 
@@ -19,35 +20,34 @@
 
 ![Architecture Diagram](docs/images/contact-form-v2.jpg)
 
-Form submissions travel from the portfolio frontend to API Gateway, which rate-limits and routes the request to a Lambda function. The function validates input, strips HTML, checks for bots via a honeypot field, writes to DynamoDB, and sends an email through SES. CloudWatch captures all logs and triggers SNS alerts on error thresholds. Every resource — Lambda, API Gateway, DynamoDB, SES permissions, CloudWatch alarms, SNS topic — is defined in a single SAM template and deployed automatically via GitHub Actions.
-
-The design is intentionally event-driven: no server is running between requests. Cost stays effectively at $0/month within AWS Free Tier for portfolio-level traffic.
+Form submissions travel from the portfolio frontend to API Gateway, which enforces rate limiting before passing the request to Lambda. The function validates and sanitizes all input, silently discards bot submissions via a honeypot field, writes the record to DynamoDB, and dispatches a notification email through SES. CloudWatch captures every invocation log and fires SNS alerts when errors cross a defined threshold. Every resource is defined in a single SAM template and provisioned through CloudFormation — no manual infrastructure setup.
 
 ---
 
 ## Tech Stack
 
-| Service | Role in this project |
+| Service | Purpose |
 |---|---|
-| AWS Lambda (Python 3.13) | Executes request handling: validation, sanitization, storage, email dispatch |
-| Amazon API Gateway | REST endpoint — enforces rate limiting (5 req/s, burst 10) and CORS |
-| Amazon DynamoDB | Stores every validated submission (on-demand capacity) |
+| AWS Lambda (Python 3.13) | Validates input, sanitizes content, writes to DynamoDB, sends email via SES |
+| Amazon API Gateway | Public REST endpoint — rate limiting, CORS, TLS termination |
+| Amazon DynamoDB | Stores every validated submission with on-demand billing |
 | Amazon SES | Sends email notification on each successful submission |
-| Amazon CloudWatch | Logs every invocation; alarms trigger on error spikes |
+| Amazon CloudWatch | Captures Lambda invocation logs; triggers alarms on error spikes |
 | Amazon SNS | Delivers alert emails when CloudWatch alarms fire |
 | AWS SAM + CloudFormation | Defines and provisions all infrastructure as code |
-| GitHub Actions | Runs `sam build` and `sam deploy` on every push to `main` |
+| GitHub Actions | Runs `sam build` + `sam deploy` on every push to `main` |
 
 ---
 
 ## Features
 
-- **Deployed** a REST API across 6 AWS services from a single SAM template — one command provisions everything
-- **Implemented** multi-layer input security: field validation, HTML tag stripping, email format check, and honeypot bot detection
-- **Configured** API Gateway throttling at 5 req/s (burst 10) to prevent abuse on a public endpoint
-- **Stored** every submission in DynamoDB with UUID partition key, ISO timestamp, sanitized content, and source IP
-- **Automated** deployments via GitHub Actions — credentials in GitHub Secrets, config persisted in `samconfig.toml`, zero manual steps after initial setup
+- **Deployed** a full serverless API stack across 6 AWS services from a single SAM template
+- **Implemented** multi-layer input security: field validation, HTML sanitization, email format check, and honeypot bot detection
+- **Configured** API Gateway rate limiting at 5 req/s (burst 10) with CORS restricted to the portfolio domain
+- **Stored** every validated submission in DynamoDB with UUID partition key, ISO timestamp, sanitized content, and source IP
+- **Automated** end-to-end deployments via GitHub Actions — credentials in GitHub Secrets, config persisted in `samconfig.toml`, zero manual steps after initial setup
 - **Set up** CloudWatch alarms that publish to SNS on Lambda error threshold breaches
+- **Wired** the live endpoint into the portfolio contact form with loading states and user-facing error handling
 
 ---
 
@@ -84,8 +84,6 @@ The design is intentionally event-driven: no server is running between requests.
 └── serverless-deploy-policy.json       # Least-privilege IAM policy for the deploy user
 ```
 
-> `samconfig.toml` is generated locally by `sam deploy --guided` and excluded from version control.
-
 </details>
 
 ---
@@ -98,25 +96,18 @@ The design is intentionally event-driven: no server is running between requests.
 - AWS SAM CLI (`pip install aws-sam-cli`)
 - Two SES-verified email addresses (sender + recipient)
 
-**1. Clone and install**
+**1. Clone the repo**
 ```bash
 git clone https://github.com/Kevinnra/Serverless-Contact-Form-API.git
-cd Serverless-Contact-Form-API
+cd Serverless-Contact-Form-API/serverless-api
 ```
 
-**2. First deploy (guided — saves config to samconfig.toml)**
+**2. First deploy — guided mode saves config to `samconfig.toml`**
 ```bash
-cd serverless-api
 sam build
 sam deploy --guided
 # Prompts: stack name, region, SenderEmail, RecipientEmail, Environment
-# Answer Y to save config — subsequent deploys use samconfig.toml automatically
-```
-
-**3. Run unit tests (no AWS needed)**
-```bash
-pip install pytest
-pytest tests/test_lambda.py -v
+# Save to samconfig.toml when prompted — subsequent deploys use it automatically
 ```
 
 **Expected output after deploy:**
@@ -126,20 +117,25 @@ Key                 ApiEndpoint
 Value               https://XXXXXX.execute-api.ap-northeast-1.amazonaws.com/prod/contact
 ```
 
+**3. Run unit tests (no AWS required)**
+```bash
+pip install pytest
+pytest tests/test_lambda.py -v
+```
+
 **4. Test the live endpoint**
 ```bash
-# Happy path — should return 200 with success message
+# Valid submission
 curl -X POST https://YOUR-ENDPOINT/prod/contact \
   -H "Content-Type: application/json" \
   -d '{"name":"Test","email":"test@example.com","message":"Hello"}'
 
-# Expected
+# Expected response
 {"success": true, "message": "Thank you for your message! I will get back to you soon."}
 ```
 
-**5. Tail live logs**
+**5. Tail Lambda logs in real time**
 ```bash
-# Real-time log stream from Lambda
 sam logs -n ContactFormFunction --stack-name contact-form-api-prod --tail
 ```
 
@@ -147,41 +143,57 @@ sam logs -n ContactFormFunction --stack-name contact-form-api-prod --tail
 
 ## Key Decisions
 
-- **Chose AWS SAM over raw CloudFormation** — SAM shorthand cuts the template size significantly for serverless resources; it still compiles to CloudFormation so nothing is abstracted away at deploy time
-- **Chose DynamoDB on-demand over provisioned capacity** — traffic is unpredictable and low-volume; paying per request avoids over-provisioning and keeps cost at $0 for portfolio-level use
-- **Chose honeypot detection over CAPTCHA** — CAPTCHA adds UX friction; a hidden form field catches most bots silently without affecting real users
-- **Chose to keep dependencies minimal** — the Lambda package uses Python stdlib (`re`, `html`, `uuid`, `json`) for sanitization rather than adding external libraries, keeping cold start time low
-- **Chose samconfig.toml for CI/CD** — persisting deploy parameters in config means the GitHub Actions workflow runs `sam deploy` without flags, reducing drift between local and CI deployments
+- **Chose AWS SAM over raw CloudFormation** — SAM shorthand for Lambda and API Gateway is far more concise; it compiles to CloudFormation at deploy time so nothing is hidden from the actual provisioning process
+- **Chose DynamoDB on-demand over provisioned capacity** — traffic is unpredictable and low-volume; on-demand billing means $0 at zero requests with no capacity to pre-configure or monitor
+- **Chose honeypot detection over CAPTCHA** — a hidden form field silently discards bots without adding friction for real users or introducing a third-party dependency
+- **Chose Python stdlib for sanitization** — `re` and `html` from the standard library handle tag stripping and character escaping without adding external packages, keeping the deployment package small and cold starts fast
+- **Chose `samconfig.toml` to persist deploy parameters** — both local deploys and the CI pipeline run `sam deploy` with no flags, eliminating drift between environments
 
 ---
 
 ## Challenges and Solutions
 
-- **Problem:** Lambda function was timing out on the first invocation after a period of inactivity (cold start). Discovered that importing `boto3` at the module level was adding ~400ms. → **Solution:** Confirmed boto3 is always pre-loaded in the Lambda execution environment — no need to import it from a dependency layer. Restructured the handler to keep imports clean and accept cold starts as expected behavior for this traffic pattern.
+- **Problem:** SES returned `MessageRejected` but Lambda logs showed no useful detail about the cause. → **Solution:** SES sandbox mode only allows sending to individually verified addresses. Verified both sender and recipient in the SES console, then confirmed the Lambda IAM role was scoped to `ses:SendEmail` on the specific verified sender identity ARN — not a wildcard resource.
 
-- **Problem:** SES email sending failed with `MessageRejected` during testing. The error was not obvious from the Lambda logs. → **Solution:** SES sandbox mode only allows sending to verified addresses. Verified both the sender and recipient addresses in the SES console and confirmed the Lambda IAM role had `ses:SendEmail` permission scoped to the verified identity ARN — not `*`.
+- **Problem:** API Gateway returned `502 Bad Gateway` when the Lambda function threw an unhandled exception, making the actual error invisible to the frontend. → **Solution:** API Gateway requires Lambda to always return a response object with `statusCode`, `headers`, and `body`. Wrapped the entire handler in `try/except` so every code path returns a valid structured response.
 
-- **Problem:** GitHub Actions deploy was failing because `sam deploy` was prompting for confirmation interactively in CI. → **Solution:** Added `--no-confirm-changeset --no-fail-on-empty-changeset` flags to the deploy step. These flags make the command non-interactive without disabling safety checks.
+- **Problem:** `sam deploy` hung indefinitely in the GitHub Actions pipeline with no output. → **Solution:** SAM was waiting for interactive changeset confirmation — the same prompt that appears locally. Added `--no-confirm-changeset` and `--no-fail-on-empty-changeset` flags to make the command non-interactive without disabling changeset safety.
 
-- **Problem:** API Gateway was returning `502 Bad Gateway` instead of the Lambda error response during validation failures. → **Solution:** Lambda must always return a properly structured response object (`statusCode`, `headers`, `body`) — even for errors. Wrapping the entire handler in a try/except that returns a `500` response fixed the gateway error.
+---
+
+## Cost Breakdown
+
+| Service | Est. Monthly Cost | Note |
+|---|---|---|
+| AWS Lambda | $0.00 | Free Tier covers 1M requests/month — portfolio traffic is well within this |
+| Amazon API Gateway | $0.00 | Free Tier covers 1M REST API calls/month for the first 12 months |
+| Amazon DynamoDB | $0.00 | On-demand billing — Free Tier covers 25 WCU/RCU; portfolio write volume is negligible |
+| Amazon SES | $0.00 | Free Tier covers 3,000 messages/month sent from Lambda |
+| Amazon CloudWatch | $0.00 | Free Tier covers 5GB log ingestion/month and 10 custom alarms |
+| Amazon SNS | $0.00 | Free Tier covers 1,000 email notifications/month |
+| **Total** | **$0.00/mo** | |
+
+Dev/learning setup — production workloads would cost more.
 
 ---
 
 ## Lessons Learned
 
-- **SAM templates make IaC accessible, but understanding the underlying CloudFormation matters** — when something failed during deploy, the error was in the CloudFormation stack, not in SAM. Knowing how to read CloudFormation events in the console was necessary to diagnose it.
-- **IAM least-privilege is harder in practice than in theory** — the first working version used overly broad permissions. Tightening the Lambda execution role to specific resource ARNs (specific DynamoDB table, specific SES identity) required going back and forth with CloudWatch logs to find what was actually being called.
-- **CloudWatch logs are not optional** — without structured logging in the Lambda handler, diagnosing the SES issue would have been much slower. Adding explicit `print()` statements at each stage (receive, validate, sanitize, store, email) made the execution flow visible immediately.
-- **The CI/CD pipeline pays off fast** — after the first manual deploy, every subsequent change was a `git push`. That feedback loop accelerated the iteration cycle significantly compared to running `sam deploy` manually each time.
-- **Serverless does not mean zero operations** — cold starts, SES sandbox restrictions, IAM scope, and API Gateway response formatting all required deliberate configuration. "Managed" services still need to be understood.
+- **SAM errors surface in CloudFormation, not in the SAM CLI output** — when a deploy failed, the useful error message was in the CloudFormation stack events in the AWS console; knowing where to look saved significant time
+- **IAM least-privilege requires iteration** — the first working version used permissions that were too broad; tightening them to specific resource ARNs meant reading CloudWatch logs carefully to confirm exactly what each service call needed at runtime
+- **Structured logging is not optional** — adding explicit log statements at each stage of the handler (receive, validate, store, email) made it possible to isolate failures immediately; without them, diagnosing the SES sandbox issue would have taken much longer
+- **CI/CD pays off fast** — after the first manual deploy, every subsequent change was a `git push`; the feedback loop made iteration significantly faster than running `sam deploy` by hand each time
+- **Serverless does not mean zero configuration** — cold starts, SES sandbox restrictions, IAM scope, and the Lambda-API Gateway response contract all required deliberate decisions; managed services still need to be understood
 
 ---
 
 ## Links
 
-**Live:** [kevinnramirez.com/#contact](https://kevinnramirez.com/#contact)
-**Portfolio:** [kevinnramirez.com](https://kevinnramirez.com)
-**LinkedIn:** [linkedin.com/in/kevinnramirez](https://www.linkedin.com/in/kevinnramirez/)
+- **Live:** [kevinnramirez.com/#contact](https://kevinnramirez.com/#contact)
+- **Portfolio**: [kevinnramirez.com](https://www.kevinnramirez.com/projects/project-v3.html?id=aws-portfolio)
+- **LinkedIn**: [linkedin.com/in/kevinnramirez](https://linkedin.com/in/kevinnramirez)
+
 
 ---
-*Built with ☁️ by [Kevinn Ramirez](https://kevinnramirez.com) | Deployed on AWS*
+
+**Built with ☁️ by Kevin Ramirez** | Cloud Engineer
