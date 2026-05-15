@@ -84,7 +84,7 @@ Resources:
       Cors:
         AllowMethods: '''POST, OPTIONS'''
         AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key'''
-        AllowOrigin: '''https://www.kevinnramirez.com''' # Restrict to your domain in production
+        AllowOrigin: '''*'''
       
       # API Gateway CloudWatch Logs
       AccessLogSetting:
